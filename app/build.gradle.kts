@@ -6,7 +6,6 @@ plugins {
 android {
     namespace = "com.mohsen.voicecallalert"
     compileSdk = 35
-
     defaultConfig {
         applicationId = "com.mohsen.voicecallalert"
         minSdk = 26
@@ -16,7 +15,7 @@ android {
     }
 }
 
-kotlinOptions { jvmTarget = "17" }
+kotlin { jvmToolchain(17) }
 
 buildTypes {
     release { isMinifyEnabled = false }
