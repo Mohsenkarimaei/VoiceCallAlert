@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111827">
+  <title>Voice Alert</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #0f172a;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    .box {
+      width: 92%;
+      max-width: 480px;
+      background: #1e293b;
+      padding: 25px;
+      border-radius: 22px;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    #status {
+      padding: 18px;
+      margin: 20px 0;
+      border-radius: 15px;
+      background: #334155;
+      font-size: 18px;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      margin: 7px 0;
+      border: 0;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: bold;
+      color: white;
+      background: #2563eb;
+    }
+
+    #stop {
+      background: #475569;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+    }
+
+    label {
+      display: block;
+      margin-top: 20px;
+    }
+
+    input {
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    #meter {
+      height: 18px;
+      margin-top: 20px;
+      background: #0f172a;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    #level {
+      height: 100%;
+      width: 0%;
+      background: #22c55e;
+      transition: width 0.05s;
+    }
+
+    #event {
+      margin-top: 20px;
+      color: #cbd5e1;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+
+  <h1>🎙️ Voice Alert</h1>
+
+  <p>نسخه آزمایشی تشخیص صدا</p>
+
+  <div id="status">
+    آماده شروع
+  </div>
+
+  <button id="start">
+    🎙️ شروع تشخیص صدا
+  </button>
+
+  <button id="stop" disabled>
+    ⏹ توقف
+  </button>
+
+  <label>
+    حساسیت:
+    <span id="value">70%</span>
+  </label>
+
+  <input
+    id="sensitivity"
+    type="range"
+    min="1"
+    max="100"
+    value="70"
+  >
+
+  <div id="meter">
+    <div id="level"></div>
+  </div>
+
+  <div id="event">
+    هنوز صدایی تشخیص داده نشده
+  </div>
+
+</div>
+
+<script>
+
+let audioContext;
+let analyser;
+let microphone;
+let data;
+let animation;
+let stream;
+
+const startButton = document.getElementById("start");
+const stopButton = document.getElementById("stop");
+const status = document.getElementById("status");
+const level = document.getElementById("level");
+const eventText = document.getElementById("event");
+const sensitivity = document.getElementById("sensitivity");
+const value = document.getElementById("value");
+
+sensitivity.addEventListener("input", () => {
+  value.textContent = sensitivity.value + "%";
+});
+
+startButton.onclick = async () => {
+
+  try {
+
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: true
+    });
+
+    audioContext =
+      new (window.AudioContext ||
+      window.webkitAudioContext)();
+
+    analyser = audioContext.createAnalyser();
+
+    analyser.fftSize = 1024;
+
+    microphone =
+      audioContext.createMediaStreamSource(stream);
+
+    microphone.connect(analyser);
+
+    data =
+      new Uint8Array(analyser.fftSize);
+
+    startButton.disabled = true;
+    stopButton.disabled = false;
+
+    status.textContent = "🎙️ در حال گوش دادن...";
+
+    checkSound();
+
+  } catch (error) {
+
+    status.textContent =
+      "❌ دسترسی به میکروفون داده نشد";
+
+    alert(
+      "لطفاً اجازه دسترسی به میکروفون را بدهید."
+    );
+  }
+};
+
+function checkSound() {
+
+  analyser.getByteTimeDomainData(data);
+
+  let sum = 0;
+
+  for (let i = 0; i < data.length; i++) {
+
+    let x = (data[i] - 128) / 128;
+
+    sum += x * x;
+  }
+
+  let rms =
+    Math.sqrt(sum / data.length);
+
+  let soundLevel =
+    Math.min(100, Math.round(rms * 300));
+
+  level.style.width =
+    soundLevel + "%";
+
+  let threshold =
+    101 - Number(sensitivity.value);
+
+  if (soundLevel >= threshold) {
+
+    status.textContent =
+      "🔔 صدا تشخیص داده شد!";
+
+    eventText.textContent =
+      "⚠️ صدای قوی شناسایی شد";
+
+  } else {
+
+    status.textContent =
+      "🎙️ در حال گوش دادن...";
+
+  }
+
+  animation =
+    requestAnimationFrame(checkSound);
+}
+
+stopButton.onclick = () => {
+
+  cancelAnimationFrame(animation);
+
+  if (stream) {
+
+    stream.getTracks().forEach(track => {
+      track.stop();
+    });
+  }
+
+  if (audioContext) {
+    audioContext.close();
+  }
+
+  startButton.disabled = false;
+  stopButton.disabled = true;
+
+  status.textContent =
+    "متوقف شد";
+};
+
+</script>
+
+</body>
+</html>
